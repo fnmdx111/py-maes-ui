@@ -1,5 +1,5 @@
 
-UI for [py-maes](https://github.com/mad4alcohol/py-maes )
+UI for [MAES](https://github.com/mad4alcohol/py-maes )
 =========================================================
 
 Requirements
