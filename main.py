@@ -7,9 +7,9 @@ from PySide.QtGui import *
 from PySide.QtCore import *
 import sys
 import time
-from logger import LoggerHandler, ColoredFormatter
+from libs.logger import LoggerHandler, ColoredFormatter
 import maes
-from misc import block_size_and_a_byte, block_size, SettingsDialog
+from libs.misc import block_size_and_a_byte, block_size, SettingsDialog
 
 
 class EncPanel(QDialog, object):
