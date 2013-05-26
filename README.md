@@ -34,10 +34,3 @@ License
 This project is licensed under the same license as py-maes.
 
 
-Contact
--------
-
-Feel free to contact [me](chsc4698@gmail.com).
-
-
-
