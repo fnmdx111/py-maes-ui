@@ -20,12 +20,13 @@ Features
 * Support file and password as secret key
 * Use [sha256](https://en.wikipedia.org/wiki/SHA-2 ) to generate key (trim if necessary)
 * Long and tedious code
+* Support task buffer
 
 
 TODO
 ----
 
-* Add task queue support
+* Refine code
 
 
 License

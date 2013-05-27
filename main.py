@@ -9,12 +9,19 @@ import sys
 import time
 from libs.logger import LoggerHandler, ColoredFormatter
 import maes
-from libs.misc import block_size_and_a_byte, block_size, SettingsDialog
+from libs.misc import BLOCK_SIZE_AND_A_BYTE, BLOCK_SIZE, SettingsDialog, TaskBuffer
 
 
 class EncPanel(QDialog, object):
 
     A_MILLION_BYTE = 1024 * 1000
+
+    ACT_ENC = 'encryption'
+    ACT_DEC = 'decryption'
+
+    accept_drops = Signal(bool)
+    start_task = Signal(str, str)
+    all_task_done = Signal()
 
     def __init__(self):
         super(EncPanel, self).__init__()
@@ -25,13 +32,37 @@ class EncPanel(QDialog, object):
         self.setup_logger()
         self.setup_settings_dialog()
 
-        self.connect(self,
-                     SIGNAL('accept_drops(bool)'),
-                     lambda b: self.setAcceptDrops(b))
+        self.accept_drops.connect(lambda b: self.setAcceptDrops(b))
+        self.start_task.connect(self.start_new_task)
+        self.all_task_done.connect(self.finalize_task_buffer)
+
+        self.task_buffer = TaskBuffer(self, self.logger)
+
+        self.task_buffer.refresh_buffer_label()
+
+        self.reset_idleness()
 
         self.setMinimumWidth(400)
         self.setAcceptDrops(True)
         self.setWindowTitle('EncPanel')
+
+
+    @Slot()
+    def finalize_task_buffer(self):
+        self.enc_button.emit(SIGNAL('enabled()'))
+        self.dec_button.emit(SIGNAL('enabled()'))
+
+        # self.emit(SIGNAL('accept_drops(bool)'), True)
+        self.reset_idleness()
+
+
+    @Slot(str, str)
+    def start_new_task(self, act, fn):
+        self.select_file(fn)
+        if act == self.ACT_ENC:
+            self.start_enc()
+        elif act == self.ACT_DEC:
+            self.start_dec()
 
 
     def setup_logger(self):
@@ -116,9 +147,11 @@ class EncPanel(QDialog, object):
                                   self.show_settings_dialog), 4, 3)
 
         h = QHBoxLayout()
+        h.addWidget(new_status_label('idleness'))
         h.addWidget(new_status_label('time_elapsed'))
         h.addWidget(new_status_label('processed_size'))
         h.addWidget(new_status_label('instant_speed'))
+        h.addWidget(new_status_label('buffer_rest'))
         grid.addLayout(h, 5, 0, 1, 4)
 
         self.setLayout(grid)
@@ -126,11 +159,16 @@ class EncPanel(QDialog, object):
 
     def select_file(self, fn=''):
         if not fn:
-            fn, _ = QFileDialog.getOpenFileName(self,
-                                                'Open File',
-                                                self.last_directory)
-        if not fn:
+            fns, _ = QFileDialog.getOpenFileNames(self,
+                                                  'Open File',
+                                                  self.last_directory)
+        else:
+            fns = [fn]
+
+        if not fns:
             return
+
+        fn = fns[0]
 
         self.last_directory = os.path.dirname(fn)
 
@@ -139,11 +177,14 @@ class EncPanel(QDialog, object):
 
         self.logger.info('opened %s', fn)
 
+        self.emit_extend_buffer(fns[1:])
+
 
     def open_files(self):
         in_fn = self.file_path_in.text()
         out_fn = self.file_path_out.text()
 
+        ret_failed = None, None, 0
         if not in_fn:
             self.select_file()
 
@@ -151,11 +192,11 @@ class EncPanel(QDialog, object):
             out_fn = self.file_path_out.text()
 
             if not in_fn:
-                return
+                return ret_failed
 
         if not out_fn:
             self.logger.error('please specify output path')
-            return
+            return ret_failed
 
         in_fp = open(in_fn, 'rb')
         out_fp = open(out_fn, 'wb')
@@ -220,8 +261,8 @@ class EncPanel(QDialog, object):
         while True:
             if not rest_size:
                 break
-            elif rest_size > block_size_and_a_byte:
-                size = block_size
+            elif rest_size > BLOCK_SIZE_AND_A_BYTE:
+                size = BLOCK_SIZE
             else:
                 size = rest_size
             out_text, init_vector = func(in_fp.read(size),
@@ -237,7 +278,7 @@ class EncPanel(QDialog, object):
 
     @contextmanager
     def action(self, act, in_fp, out_fp, size):
-        act = 'encryption' if act == maes.cbc_aes else 'decryption'
+        act = self.ACT_ENC if act == maes.cbc_aes else self.ACT_DEC
 
         self.start_time = self.last_time = time.time()
 
@@ -245,11 +286,6 @@ class EncPanel(QDialog, object):
                          act, len(self.key) * 8)
 
         yield
-
-        self.enc_button.emit(SIGNAL('enabled()'))
-        self.dec_button.emit(SIGNAL('enabled()'))
-
-        self.emit(SIGNAL('accept_drops(bool)'), True)
 
         in_fp.close()
         out_fp.close()
@@ -265,6 +301,7 @@ class EncPanel(QDialog, object):
             avg_speed = 'inf'
         self.logger.info('%s done within %s, average speed %s',
                          act, t, avg_speed)
+        self.task_buffer.task_finished.emit(act)
 
 
     def start_action(self, action, file_state, round_callback):
@@ -289,8 +326,19 @@ class EncPanel(QDialog, object):
             event.ignore()
             return
 
-        file_url = event.mimeData().urls()[0]
-        self.select_file(file_url.toLocalFile())
+        fns = [item.toLocalFile() for item in event.mimeData().urls()]
+
+        self.emit_extend_buffer(fns)
+
+
+    def emit_extend_buffer(self, fns):
+        if not self.file_path_in.text():
+            pending = fns[1:]
+            self.select_file(fns[0])
+        else:
+            pending = fns
+
+        self.task_buffer.extend_buffer.emit(fns)
 
 
     def gen_callback(self, total):
@@ -323,10 +371,14 @@ class EncPanel(QDialog, object):
         return callback
 
 
+    def reset_idleness(self):
+        self.idleness.setText('<font color=orange><b>idle</b></font>')
+
+
     def initialize_action(self):
         self.enc_button.setEnabled(False)
         self.dec_button.setEnabled(False)
-        self.setAcceptDrops(False)
+        # self.setAcceptDrops(False)
 
         self.progress.reset()
         self.time_elapsed.setText('')
@@ -337,7 +389,11 @@ class EncPanel(QDialog, object):
     def start_enc(self):
         fp = _, _, total = self.open_files()
 
+        if None in fp:
+            return
+
         self.initialize_action()
+        self.idleness.setText('<font color=green><b>enc</b></font>')
         self.start_action(maes.cbc_aes,
                           fp,
                           self.gen_callback(total))
@@ -346,7 +402,11 @@ class EncPanel(QDialog, object):
     def start_dec(self):
         fp = _, _, total = self.open_files()
 
+        if None in fp:
+            return
+
         self.initialize_action()
+        self.idleness.setText('<font color=green><b>dec</b></font>')
         self.start_action(maes.inv_cbc_aes,
                           fp,
                           self.gen_callback(total))

@@ -6,8 +6,8 @@ from PySide.QtCore import *
 import sys
 
 
-block_size = 8192 * 128
-block_size_and_a_byte = block_size + 16
+BLOCK_SIZE = 8192 * 128
+BLOCK_SIZE_AND_A_BYTE = BLOCK_SIZE + 16
 
 
 class SettingsDialog(QDialog, object):
@@ -221,6 +221,46 @@ class SettingsDialog(QDialog, object):
 
     def get_parameters(self):
         return self.init_vector, self.key
+
+
+
+class TaskBuffer(QObject, object):
+
+    extend_buffer = Signal(list)
+    task_finished = Signal(str)
+
+    def __init__(self, target, logger):
+        super(TaskBuffer, self).__init__()
+
+        self.buffer = []
+        self.target = target
+        self.logger = logger
+
+        self.extend_buffer.connect(self.extend)
+        self.task_finished.connect(self.new_task)
+
+
+    @Slot(list)
+    def extend(self, l):
+        for item in l:
+            self.buffer.append(item)
+            self.logger.info('added %s to buffer', item)
+        self.refresh_buffer_label()
+
+
+    @Slot(str)
+    def new_task(self, act):
+        if self.buffer:
+            self.target.start_task.emit(act, self.buffer.pop(0))
+        else:
+            self.target.all_task_done.emit()
+        self.refresh_buffer_label()
+
+
+    def refresh_buffer_label(self):
+        self.target.buffer_rest.emit(SIGNAL('update(QString)'),
+                                     'buffer: %s' % len(self.buffer))
+
 
 
 
