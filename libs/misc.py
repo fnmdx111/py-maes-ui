@@ -6,8 +6,8 @@ from PySide.QtCore import *
 import sys
 
 
-BLOCK_SIZE = 8192 * 128
-BLOCK_SIZE_AND_A_BYTE = BLOCK_SIZE + 16
+CHUNK_SIZE = 8192 * 128
+CHUNK_SIZE_AND_A_BLOCK = CHUNK_SIZE + 16
 
 
 class SettingsDialog(QDialog, object):

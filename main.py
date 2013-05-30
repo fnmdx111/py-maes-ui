@@ -9,7 +9,7 @@ import sys
 import time
 from libs.logger import LoggerHandler, ColoredFormatter
 import maes
-from libs.misc import BLOCK_SIZE_AND_A_BYTE, BLOCK_SIZE, SettingsDialog, TaskBuffer
+from libs.misc import CHUNK_SIZE_AND_A_BLOCK, CHUNK_SIZE, SettingsDialog, TaskBuffer
 
 
 class EncPanel(QDialog, object):
@@ -52,7 +52,6 @@ class EncPanel(QDialog, object):
         self.enc_button.emit(SIGNAL('enabled()'))
         self.dec_button.emit(SIGNAL('enabled()'))
 
-        # self.emit(SIGNAL('accept_drops(bool)'), True)
         self.reset_idleness()
 
 
@@ -117,10 +116,14 @@ class EncPanel(QDialog, object):
         self.file_path_in = QLineEdit()
         in_label = QLabel('&Input Path')
         in_label.setBuddy(self.file_path_in)
+        self.connect(self.file_path_in, SIGNAL('clear(QString)'),
+                     self.file_path_in.setText)
 
         self.file_path_out = QLineEdit()
         out_label = QLabel('Output &Path')
         out_label.setBuddy(self.file_path_out)
+        self.connect(self.file_path_out, SIGNAL('clear(QString)'),
+                     self.file_path_out.setText)
 
         grid = QGridLayout()
 
@@ -172,12 +175,15 @@ class EncPanel(QDialog, object):
 
         self.last_directory = os.path.dirname(fn)
 
-        self.file_path_in.setText(fn)
-        self.file_path_out.setText(fn + '.aes')
-
-        self.logger.info('opened %s', fn)
+        self.echo_selected_file(fn, '%s.aes' % fn)
+        self.logger.info('selected %s', fn)
 
         self.emit_extend_buffer(fns[1:])
+
+
+    def echo_selected_file(self, in_fn, out_fn):
+        self.file_path_in.setText(in_fn)
+        self.file_path_out.setText(out_fn)
 
 
     def open_files(self):
@@ -203,22 +209,14 @@ class EncPanel(QDialog, object):
         self.logger.debug('opened file handler %s', in_fn)
         self.logger.debug('opened file handler %s', out_fn)
 
+        self.echo_selected_file(in_fn, out_fn)
+
         in_fp.seek(0, os.SEEK_END)
         size = in_fp.tell()
         in_fp.seek(0, os.SEEK_SET)
 
-        size_f = float(size)
-        if size > 1024 * 1000 * 1000:
-            human_readable_size = ' (%.2f GB)' % (size_f /
-                                                  (self.A_MILLION_BYTE * 1000))
-        elif size > 1024 * 1000:
-            human_readable_size = ' (%.2f MB)' % (size_f / self.A_MILLION_BYTE)
-        elif size > 1024:
-            human_readable_size = ' (%.2f kB)' % (size_f / 1024)
-        else:
-            human_readable_size = ''
-        self.logger.info('source size %s bytes%s',
-                         size, human_readable_size)
+        self.logger.info('source size %s (%s bytes)',
+                         self.to_human_readable(size), size)
 
         return in_fp, out_fp, size
 
@@ -261,8 +259,8 @@ class EncPanel(QDialog, object):
         while True:
             if not rest_size:
                 break
-            elif rest_size > BLOCK_SIZE_AND_A_BYTE:
-                size = BLOCK_SIZE
+            elif rest_size > CHUNK_SIZE_AND_A_BLOCK:
+                size = CHUNK_SIZE
             else:
                 size = rest_size
             out_text, init_vector = func(in_fp.read(size),
@@ -274,6 +272,20 @@ class EncPanel(QDialog, object):
             round_callback(processed_size, size)
 
         return out_fp
+
+
+    def to_human_readable(self, size):
+        size_f = float(size)
+        if size > 1024 * 1000 * 1000:
+            human_readable_size = '%.2f GB' % (size_f /
+                                                  (self.A_MILLION_BYTE * 1000))
+        elif size > 1024 * 1000:
+            human_readable_size = '%.2f MB' % (size_f / self.A_MILLION_BYTE)
+        elif size > 1024:
+            human_readable_size = '%.2f kB' % (size_f / 1024)
+        else:
+            human_readable_size = '%.2f B' % size_f
+        return human_readable_size
 
 
     @contextmanager
@@ -299,6 +311,10 @@ class EncPanel(QDialog, object):
         else:
             t = '0.00 sec'
             avg_speed = 'inf'
+
+        self.file_path_in.emit(SIGNAL('clear(QString)'), '')
+        self.file_path_out.emit(SIGNAL('clear(QString)'), '')
+
         self.logger.info('%s done within %s, average speed %s',
                          act, t, avg_speed)
         self.task_buffer.task_finished.emit(act)
@@ -338,7 +354,7 @@ class EncPanel(QDialog, object):
         else:
             pending = fns
 
-        self.task_buffer.extend_buffer.emit(fns)
+        self.task_buffer.extend_buffer.emit(pending)
 
 
     def gen_callback(self, total):

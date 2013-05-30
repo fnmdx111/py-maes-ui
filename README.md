@@ -27,6 +27,7 @@ TODO
 ----
 
 * Refine code
+* Add buffer control support
 
 
 License
