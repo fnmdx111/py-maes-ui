@@ -57,7 +57,8 @@ class EncPanel(QDialog, object):
 
     @Slot(str, str)
     def start_new_task(self, act, fn):
-        self.select_file(fn)
+        self.echo_selected_file(fn, '%s.aes' % fn)
+
         if act == self.ACT_ENC:
             self.start_enc()
         elif act == self.ACT_DEC:
@@ -176,7 +177,6 @@ class EncPanel(QDialog, object):
         self.last_directory = os.path.dirname(fn)
 
         self.echo_selected_file(fn, '%s.aes' % fn)
-        self.logger.info('selected %s', fn)
 
         self.emit_extend_buffer(fns[1:])
 
@@ -184,6 +184,7 @@ class EncPanel(QDialog, object):
     def echo_selected_file(self, in_fn, out_fn):
         self.file_path_in.setText(in_fn)
         self.file_path_out.setText(out_fn)
+        self.logger.info('selected %s', in_fn)
 
 
     def open_files(self):
@@ -208,8 +209,6 @@ class EncPanel(QDialog, object):
         out_fp = open(out_fn, 'wb')
         self.logger.debug('opened file handler %s', in_fn)
         self.logger.debug('opened file handler %s', out_fn)
-
-        self.echo_selected_file(in_fn, out_fn)
 
         in_fp.seek(0, os.SEEK_END)
         size = in_fp.tell()
@@ -306,8 +305,8 @@ class EncPanel(QDialog, object):
         if time_elapsed > 0:
             t = ('%.2f sec' % time_elapsed) +\
                         ('s' if time_elapsed > 1 else '')
-            avg_speed = '%.2f MB/s' %\
-                            (float(size) / time_elapsed / self.A_MILLION_BYTE)
+            avg_speed = '%s/s' %\
+                            self.to_human_readable(float(size) / time_elapsed)
         else:
             t = '0.00 sec'
             avg_speed = 'inf'
@@ -370,16 +369,15 @@ class EncPanel(QDialog, object):
                                                  time.gmtime(total_elapsed)))
 
             if time_elapsed > 0:
-                speed = float(block_size) / time_elapsed / self.A_MILLION_BYTE
+                speed = float(block_size) / time_elapsed
                 self.instant_speed.emit(SIGNAL('update(QString)'),
-                                        '%.2f MB/s' % speed)
+                                        '%s/s' % self.to_human_readable(speed))
             else:
                 self.instant_speed.emit(SIGNAL('update(QString)'),
-                                        'inf MB/s')
+                                        'inf')
 
-            processed_MB = processed_size / self.A_MILLION_BYTE
             self.processed_size.emit(SIGNAL('update(QString)'),
-                                     '%.2f MB' % processed_MB)
+                                     self.to_human_readable(processed_size))
 
             self.progress.emit(SIGNAL('set_progress(int)'),
                                int(processed_size / total * 100))
@@ -394,7 +392,6 @@ class EncPanel(QDialog, object):
     def initialize_action(self):
         self.enc_button.setEnabled(False)
         self.dec_button.setEnabled(False)
-        # self.setAcceptDrops(False)
 
         self.progress.reset()
         self.time_elapsed.setText('')
@@ -431,6 +428,7 @@ class EncPanel(QDialog, object):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+
     panel = EncPanel()
     panel.show()
 

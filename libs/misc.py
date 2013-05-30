@@ -96,20 +96,25 @@ class SettingsDialog(QDialog, object):
                 )
                 self.path_widget.setText(fn)
 
-        self.password_key_radio_btn = QRadioButton('Use password as key')
-        self.file_key_radio_btn = QRadioButton('Use file as key')
+        def make_radio_button(name, text):
+            radio_button = QRadioButton(text)
+            self.__setattr__(name, radio_button)
+            return radio_button
+
         self.mode_group = QButtonGroup(self)
-        self.mode_group.addButton(self.password_key_radio_btn, 1)
-        self.mode_group.addButton(self.file_key_radio_btn, 2)
+        self.mode_group.addButton(make_radio_button('password_key_radio_btn',
+                                                    'Use password as key'), 1)
+        self.mode_group.addButton(make_radio_button('file_key_radio_btn',
+                                                    'Use file as key'), 2)
 
         radio_label = QLabel('Key length')
-        self.radio_btn_128 = QRadioButton('128-bit')
-        self.radio_btn_192 = QRadioButton('192-bit')
-        self.radio_btn_256 = QRadioButton('256-bit')
         self.key_len_group = QButtonGroup(self)
-        self.key_len_group.addButton(self.radio_btn_128, 1)
-        self.key_len_group.addButton(self.radio_btn_192, 2)
-        self.key_len_group.addButton(self.radio_btn_256, 3)
+        self.key_len_group.addButton(make_radio_button('radio_btn_128',
+                                                       '128-bit'), 1)
+        self.key_len_group.addButton(make_radio_button('radio_btn_192',
+                                                       '192-bit'), 2)
+        self.key_len_group.addButton(make_radio_button('radio_btn_256',
+                                                       '256-bit'), 3)
 
         stacked_widget = QStackedWidget()
         self.password_key_page = PasswordKeySettingWidget(self)
@@ -213,10 +218,6 @@ class SettingsDialog(QDialog, object):
         ]
 
         return super(SettingsDialog, self).accept()
-
-
-    def reject(self, *args, **kwargs):
-        return super(SettingsDialog, self).reject(*args, **kwargs)
 
 
     def get_parameters(self):
