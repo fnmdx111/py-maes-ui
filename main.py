@@ -1,6 +1,6 @@
 # encoding: utf-8
 from contextlib import contextmanager
-from logging import Logger
+import logging
 import os
 import threading
 from PySide.QtGui import *
@@ -10,6 +10,9 @@ import time
 from libs.logger import LoggerHandler, ColoredFormatter
 import maes
 from libs.misc import CHUNK_SIZE_AND_A_BLOCK, CHUNK_SIZE, SettingsDialog, TaskBuffer
+
+
+logging.basicConfig()
 
 
 class EncPanel(QDialog, object):
@@ -78,7 +81,8 @@ class EncPanel(QDialog, object):
 
 
     def setup_logger(self):
-        self.logger = Logger(__name__)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
 
         color_scheme = ColoredFormatter.gen_colorscheme()
 
