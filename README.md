@@ -28,6 +28,7 @@ TODO
 
 * Refine code
 * Add buffer control support
+* Add command line interface
 
 
 License
