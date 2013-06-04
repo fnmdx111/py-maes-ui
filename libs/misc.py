@@ -11,6 +11,9 @@ CHUNK_SIZE_AND_A_BLOCK = CHUNK_SIZE + 16
 
 
 class SettingsDialog(QDialog, object):
+    """Settings dialog for EncPanel.
+    Use `get_parameter` to get key and initial vector."""
+
     def __init__(self, parent):
         super(SettingsDialog, self).__init__(parent)
         self.parent = parent
@@ -176,6 +179,7 @@ class SettingsDialog(QDialog, object):
                                  QMessageBox.Ok)
             return
         else:
+            # convert '00000000' to '\x00\x00\x00\x00'
             self.init_vector = ''.join([struct.pack('B',
                                                     int(iv[i:i + 2],
                                                         base=16))
@@ -211,6 +215,8 @@ class SettingsDialog(QDialog, object):
         if not to_digest:
             return
 
+        # use sha256 to generate 256-bit digest
+        # and truncate it to the size wanted
         self.key = hashlib.sha256(to_digest).digest()[:
                 {1: 16,
                  2: 24,
@@ -226,6 +232,18 @@ class SettingsDialog(QDialog, object):
 
 
 class TaskBuffer(QObject, object):
+    """Object which buffers tasks for asynchronized task support.
+    Inherits QObject so that signals and slots can be implemented.
+
+    signals:
+    extend_buffer(list): emitted when new tasks are added
+    task_finished(str): emitted when self.buffer is empty
+
+    slots:
+    extend(l: list): extend buffer
+    new_task(act: str): activate new task from self.buffer, whether it is an
+                        encrypting task or decrypting task is
+                        depended on `act`"""
 
     extend_buffer = Signal(list)
     task_finished = Signal(str)
@@ -272,3 +290,5 @@ if __name__ == '__main__':
     dialog.show()
 
     app.exec_()
+
+

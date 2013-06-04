@@ -13,6 +13,18 @@ from libs.misc import CHUNK_SIZE_AND_A_BLOCK, CHUNK_SIZE, SettingsDialog, TaskBu
 
 
 class EncPanel(QDialog, object):
+    """GUI part of MAES.
+
+    signals:
+    accept_drops(bool): emitted when panel changes drop policy
+    start_task(str, str): emitted when new task is to start
+    all_task_done(): emitted task buffer is empty
+    other widget signals are omitted
+
+    slots:
+    finalize_task_buffer(): reset panel state to initial state
+    start_new_task(act: str, fn: str): start new task,
+                                       args are action type and file path"""
 
     A_MILLION_BYTE = 1024 * 1000
 
