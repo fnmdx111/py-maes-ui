@@ -8,7 +8,7 @@ from PySide.QtCore import *
 import sys
 import time
 from libs.logger import LoggerHandler, ColoredFormatter
-import maes
+from libs import maes
 from libs.misc import CHUNK_SIZE_AND_A_BLOCK, CHUNK_SIZE, SettingsDialog, TaskBuffer
 
 
