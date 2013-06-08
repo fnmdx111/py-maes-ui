@@ -29,6 +29,8 @@ TODO
 * Refine code
 * Add buffer control support
 * Add command line interface
+* Add asynchronous hashing (blocked procedure)
+* Add [Keccak](http://keccak.noekeon.org/ ) support
 
 
 License
